@@ -1,0 +1,37 @@
+services:
+  api:
+    build: .
+    image: campustransit:latest
+    container_name: campustransit
+    ports:
+      - "4000:4000"
+    environment:
+      # Runs on the built-in in-memory demo store out of the box.
+      # To use Postgres instead, set DATABASE_URL and uncomment the db service below.
+      PORT: "4000"
+      # DATABASE_URL: postgresql://campustransit:campustransit@db:5432/campustransit
+    restart: unless-stopped
+    # depends_on:
+    #   db:
+    #     condition: service_healthy
+
+  # ---- Optional Postgres (enable for a real database) ----
+  # db:
+  #   image: postgres:16-alpine
+  #   container_name: campustransit-db
+  #   environment:
+  #     POSTGRES_USER: campustransit
+  #     POSTGRES_PASSWORD: campustransit
+  #     POSTGRES_DB: campustransit
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U campustransit"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 10
+
+# volumes:
+#   pgdata:
