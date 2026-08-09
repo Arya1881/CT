@@ -41,139 +41,100 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ activeTab, s
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto animate-fadeIn">
-      {/* Student Welcome & SOS Banner */}
-      <div className="glass-panel p-6 rounded-3xl border border-cyan-500/30 flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-cyan-600/20 via-slate-900 to-blue-600/20 shadow-2xl">
+    <div className="max-w-7xl mx-auto space-y-6 pb-12 font-['Plus_Jakarta_Sans',sans-serif]">
+      {/* Desktop Web Banner Header */}
+      <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 p-6 rounded-3xl text-white shadow-xl shadow-orange-500/20 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center space-x-4">
-          <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center justify-center shadow-lg">
-            <Compass className="w-8 h-8 animate-spin-slow text-cyan-400" />
+          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 text-white shadow-lg">
+            <Compass className="w-8 h-8 animate-spin-slow" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-xl font-black text-white">{student.name}</h2>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+              <h1 className="text-2xl font-black tracking-tight text-white font-heading">{student.name}</h1>
+              <span className="px-3 py-1 rounded-full text-[10px] font-black bg-white text-orange-600 shadow-sm">
                 {student.rollNumber}
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Department: <strong className="text-slate-200">{student.gradeDepartment}</strong> | Boarding Stop: <span className="font-bold text-cyan-300">{assignedStop.name}</span>
+            <p className="text-xs text-orange-100 mt-1 font-semibold">
+              Department: <strong className="text-white">{student.gradeDepartment}</strong> | Boarding Stop: <span className="font-extrabold text-white underline">{assignedStop.name}</span>
             </p>
           </div>
         </div>
 
         <button
           onClick={() => setIsSOSOpen(true)}
-          className="px-6 py-3.5 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-xl shadow-red-600/40 transition-all flex items-center space-x-2 sos-pulse"
+          className="px-6 py-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider shadow-xl shadow-red-600/30 transition-all flex items-center space-x-2 sos-pulse"
         >
           <ShieldAlert className="w-5 h-5 animate-pulse" />
           <span>STUDENT SOS PANIC</span>
         </button>
       </div>
 
-      {/* Main Grid: Single Live Map & Telemetry Cards */}
+      {/* 2-Column Responsive Web Application Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Strictly ONE Live GPS Map */}
+        {/* Left Column: Real Map Engine & Telemetry BELOW Map */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="glass-panel p-2 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
-            <LiveMap
-              trips={trips}
-              routes={routes}
-              alerts={alerts}
-              selectedBusId={bus.id}
-              singleBusOnly={true}
-              height="h-[520px]"
-            />
-          </div>
+          <LiveMap
+            trips={trips}
+            routes={routes}
+            alerts={alerts}
+            selectedBusId={bus.id}
+            singleBusOnly={true}
+            height="h-[500px]"
+          />
         </div>
 
-        {/* Live ETA, Bus Info, Driver Details, and Stop Sequence */}
+        {/* Right Column: Bus Details, Driver Contacts, & Route Stop Progression */}
         <div className="space-y-6">
-          {/* Live ETA Card */}
-          <div className="glass-panel p-6 rounded-3xl border border-cyan-500/30 bg-cyan-950/20 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider">Live Arrival ETA</span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                LIVE GPS
-              </span>
-            </div>
-
-            <div className="text-center py-4 space-y-1">
-              <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-blue-400 tracking-tight">
-                ~{trip?.etaMinutesToNextStop || 5} <span className="text-lg text-slate-400 font-normal">mins</span>
-              </p>
-              <p className="text-xs text-slate-300">
-                Estimated arrival at <strong className="text-cyan-300">{assignedStop.name}</strong>
-              </p>
-            </div>
-
-            <div className="glass-card p-3.5 rounded-2xl border border-slate-800 space-y-2 text-xs">
-              <div className="flex items-center justify-between text-slate-300">
-                <span>Bus Status:</span>
-                <strong className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                  bus.status === 'IN_TRANSIT' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                  bus.status === 'DELAYED' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-slate-800 text-slate-400'
-                }`}>
-                  {bus.status}
-                </strong>
-              </div>
-              {trip?.delayReason && (
-                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px]">
-                  ⚠️ Driver Delay Note: {trip.delayReason}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Bus & Driver Info Card */}
-          <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4 shadow-xl">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Assigned Bus & Driver</h3>
+          {/* Assigned Bus & Driver Card */}
+          <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100 space-y-4">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">Assigned Bus & Driver</h3>
             <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 overflow-hidden text-cyan-400">
+              <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center font-black">
                 <User className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-sm font-bold text-white">{driver.name}</p>
-                <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                  <Phone className="w-3 h-3 text-cyan-400" />
-                  <a href={`tel:${driver.phone}`} className="text-cyan-300 hover:underline font-mono">
+                <p className="text-base font-black text-slate-900">{driver.name}</p>
+                <p className="text-xs text-slate-500 font-semibold mt-0.5 flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5 text-orange-600" />
+                  <a href={`tel:${driver.phone}`} className="text-orange-600 hover:underline font-mono font-bold">
                     {driver.phone}
                   </a>
                 </p>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-300">
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
               <span className="flex items-center gap-1.5">
-                <Bus className="w-4 h-4 text-cyan-400" />
+                <Bus className="w-4 h-4 text-orange-600" />
                 Vehicle: <strong>{bus.busNumber}</strong>
               </span>
-              <span className="font-mono text-slate-400">{bus.regNumber}</span>
+              <span className="font-mono text-slate-500">{bus.regNumber}</span>
             </div>
           </div>
 
           {/* Route Stops Sequence */}
-          <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-3 shadow-xl">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Route Stop Sequence</h3>
-            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-              {route.stops.map((stop, idx) => {
+          <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100 space-y-3">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">Route Stop Progression</h3>
+            <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+              {route.stops.map((stop) => {
                 const isAssigned = stop.id === assignedStop.id;
                 return (
                   <div
                     key={stop.id}
-                    className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition-all ${
+                    className={`p-3 rounded-2xl border flex items-center justify-between text-xs transition-all ${
                       isAssigned
-                        ? 'bg-cyan-500/20 border-cyan-400 text-white font-bold'
-                        : 'glass-card border-slate-800 text-slate-300'
+                        ? 'bg-orange-50 border-orange-500 text-slate-900 font-black shadow-sm'
+                        : 'bg-slate-50 border-slate-200 text-slate-700'
                     }`}
                   >
-                    <div className="flex items-center space-x-2">
-                      <MapPin className={`w-3.5 h-3.5 ${isAssigned ? 'text-cyan-400' : 'text-slate-500'}`} />
+                    <div className="flex items-center space-x-2.5">
+                      <MapPin className={`w-4 h-4 ${isAssigned ? 'text-orange-600' : 'text-slate-400'}`} />
                       <span>{stop.name}</span>
                     </div>
                     {isAssigned && (
-                      <span className="px-2 py-0.5 rounded text-[9px] font-extrabold bg-cyan-400 text-slate-950">
-                        YOUR STOP
+                      <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black bg-orange-500 text-white shadow-sm">
+                        YOUR BOARDING STOP
                       </span>
                     )}
                   </div>

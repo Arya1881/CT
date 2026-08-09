@@ -1,5 +1,5 @@
-import React from 'react';
-import { Bus, MapPin, AlertTriangle, Gauge, Clock } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Bus, Phone, Share2, MapPin, Gauge } from 'lucide-react';
 import type { Trip, Route, EmergencyAlert } from '../types';
 
 interface LiveMapProps {
@@ -12,156 +12,253 @@ interface LiveMapProps {
   height?: string;
 }
 
+// Catmull-Rom Spline generator for 100% free-flowing smooth curved route paths like Google Maps
+function generateSmoothSpline(points: [number, number][], numPointsPerSegment: number = 25): [number, number][] {
+  if (points.length < 2) return points;
+
+  const result: [number, number][] = [];
+  const pts: [number, number][] = [points[0], ...points, points[points.length - 1]];
+
+  for (let i = 0; i < pts.length - 3; i++) {
+    const p0 = pts[i];
+    const p1 = pts[i + 1];
+    const p2 = pts[i + 2];
+    const p3 = pts[i + 3];
+
+    for (let j = 0; j < numPointsPerSegment; j++) {
+      const t = j / numPointsPerSegment;
+      const t2 = t * t;
+      const t3 = t2 * t;
+
+      const lat = 0.5 * (
+        (2 * p1[0]) +
+        (-p0[0] + p2[0]) * t +
+        (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+        (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3
+      );
+
+      const lng = 0.5 * (
+        (2 * p1[1]) +
+        (-p0[1] + p2[1]) * t +
+        (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+        (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3
+      );
+
+      result.push([lat, lng]);
+    }
+  }
+
+  result.push(points[points.length - 1]);
+  return result;
+}
+
 export const LiveMap: React.FC<LiveMapProps> = ({
   trips,
   routes,
-  alerts = [],
   selectedBusId,
   singleBusOnly = false,
   onSelectBus,
-  height = 'h-[500px]'
+  height = 'h-[480px]'
 }) => {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markersRef = useRef<{ [key: string]: any }>({});
+  const polylineRef = useRef<any>(null);
+  const glowPolylineRef = useRef<any>(null);
+
+  const [isMapReady, setIsMapReady] = useState(false);
+
   const activeTrip = trips.find(t => t.busId === selectedBusId) || trips[0];
   const activeRoute = routes.find(r => r.id === activeTrip?.routeId) || routes[0];
 
-  // If singleBusOnly is true, render strictly ONLY the assigned bus trip
   const tripsToDisplay = singleBusOnly && selectedBusId
     ? trips.filter(t => t.busId === selectedBusId)
     : trips;
 
+  // Dynamically load Leaflet CDN for real Google/OSM Map tiles
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if ((window as any).L) {
+      setIsMapReady(true);
+      return;
+    }
+
+    const cssLink = document.createElement('link');
+    cssLink.rel = 'stylesheet';
+    cssLink.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(cssLink);
+
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.async = true;
+    script.onload = () => {
+      setIsMapReady(true);
+    };
+    document.head.appendChild(script);
+  }, []);
+
+  // Initialize Real Map Instance
+  useEffect(() => {
+    if (!isMapReady || !mapContainerRef.current || mapInstanceRef.current) return;
+
+    const L = (window as any).L;
+    if (!L) return;
+
+    const centerLat = activeTrip?.currentLat || 10.3637;
+    const centerLng = activeTrip?.currentLng || 76.3262;
+
+    const map = L.map(mapContainerRef.current, {
+      center: [centerLat, centerLng],
+      zoom: 13,
+      zoomControl: false
+    });
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    mapInstanceRef.current = map;
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [isMapReady]);
+
+  // Update Free-Flowing Smooth Orange Curved Spline & Markers
+  useEffect(() => {
+    if (!mapInstanceRef.current || !(window as any).L) return;
+    const L = (window as any).L;
+    const map = mapInstanceRef.current;
+
+    if (activeRoute && activeRoute.stops && activeRoute.stops.length > 0) {
+      const stopCoords: [number, number][] = activeRoute.stops.map(s => [s.lat, s.lng]);
+      
+      // Generate 100% free-flowing smooth spline curves like Google Maps
+      const curvedRoutePath = generateSmoothSpline(stopCoords, 30);
+
+      // Outer Orange Glow Polyline Line
+      if (glowPolylineRef.current) map.removeLayer(glowPolylineRef.current);
+      glowPolylineRef.current = L.polyline(curvedRoutePath, {
+        color: '#ff8800',
+        weight: 10,
+        opacity: 0.35,
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(map);
+
+      // Core Vibrant Orange Polyline Line
+      if (polylineRef.current) map.removeLayer(polylineRef.current);
+      polylineRef.current = L.polyline(curvedRoutePath, {
+        color: '#ff6b00',
+        weight: 6,
+        opacity: 0.95,
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(map);
+
+      map.fitBounds(polylineRef.current.getBounds(), { padding: [35, 35] });
+    }
+
+    // Clear old markers
+    Object.values(markersRef.current).forEach((marker: any) => map.removeLayer(marker));
+    markersRef.current = {};
+
+    // Add Bus Vehicle Markers with Custom Orange Badge Icon
+    tripsToDisplay.forEach(trip => {
+      const busHtml = `
+        <div style="
+          width: 46px;
+          height: 46px;
+          background: linear-gradient(135deg, #ff6b00 0%, #ff8800 100%);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 8px 20px rgba(255, 107, 0, 0.5);
+          border: 3px solid #ffffff;
+        ">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 6v6"></path> <path d="M16 6v6"></path> <path d="M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"></path> <path d="M4 12h16"></path> <path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6H4V6z"></path> <circle cx="7.5" cy="16.5" r="1.5"></circle> <circle cx="16.5" cy="16.5" r="1.5"></circle>
+          </svg>
+        </div>
+      `;
+
+      const customIcon = L.divIcon({
+        html: busHtml,
+        className: 'custom-bus-marker',
+        iconSize: [46, 46],
+        iconAnchor: [23, 23]
+      });
+
+      const marker = L.marker([trip.currentLat, trip.currentLng], { icon: customIcon }).addTo(map);
+      marker.on('click', () => {
+        if (onSelectBus) onSelectBus(trip.busId);
+      });
+      markersRef.current[trip.busId] = marker;
+    });
+
+  }, [isMapReady, tripsToDisplay, activeRoute]);
+
   return (
-    <div className={`relative w-full ${height} rounded-2xl glass-panel border border-slate-800 overflow-hidden flex flex-col shadow-2xl`}>
-      <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
-        <div className="glass-panel px-4 py-2 rounded-xl border border-slate-700/80 shadow-lg flex items-center space-x-3 pointer-events-auto">
-          <div className="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></div>
-          <div>
-            <p className="text-xs font-bold text-slate-200">
-              {activeTrip ? `Bus ${activeTrip.busId.replace('bus-', '')} Tracking` : 'Fleet Live GPS Corridor'}
-            </p>
-            <p className="text-[10px] text-slate-400">
-              {activeRoute ? activeRoute.name : 'All Active Routes'}
-            </p>
-          </div>
-        </div>
-
-        {activeTrip && (
-          <div className="glass-panel px-4 py-2 rounded-xl border border-slate-700/80 shadow-lg flex items-center space-x-6 pointer-events-auto text-xs">
-            <div className="flex items-center space-x-2 text-slate-300">
-              <Gauge className="w-4 h-4 text-cyan-400" />
-              <span>Speed: <strong className="text-cyan-300 font-extrabold">{activeTrip.speedKmh} km/h</strong></span>
-            </div>
-            <div className="flex items-center space-x-2 text-slate-300">
-              <Clock className="w-4 h-4 text-amber-400" />
-              <span>Next Stop: <strong className="text-amber-300 font-bold">{activeTrip.nextStopName}</strong> (~{activeTrip.etaMinutesToNextStop}m)</span>
-            </div>
-          </div>
-        )}
+    <div className="space-y-4">
+      {/* Real Map Viewport Container (Clean 100% full-bleed map, "Track your bus" inner bar completely removed) */}
+      <div className={`relative w-full ${height} rounded-3xl overflow-hidden shadow-2xl bg-slate-900 border border-orange-200/40`}>
+        <div ref={mapContainerRef} className="w-full h-full z-10" />
       </div>
 
-      <div className="relative flex-1 bg-slate-950 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px] flex items-center justify-center p-8 overflow-hidden">
-        <svg className="absolute inset-0 w-full h-full text-slate-800 opacity-60">
-          <line x1="10%" y1="70%" x2="30%" y2="50%" stroke="#0284c7" strokeWidth="4" strokeDasharray="6 6" />
-          <line x1="30%" y1="50%" x2="60%" y2="40%" stroke="#0284c7" strokeWidth="4" strokeDasharray="6 6" />
-          <line x1="60%" y1="40%" x2="85%" y2="25%" stroke="#0284c7" strokeWidth="4" strokeDasharray="6 6" />
-        </svg>
+      {/* Details Strictly BELOW the Map Container */}
+      {activeTrip && (
+        <div className="bg-white p-5 rounded-3xl shadow-xl border border-slate-100 space-y-3 font-['Plus_Jakarta_Sans',sans-serif]">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center space-x-6">
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Distance</p>
+                <p className="text-2xl font-black text-slate-900">15 <span className="text-sm font-bold text-slate-500">km</span></p>
+              </div>
+              <div className="pl-6 border-l border-slate-200">
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Travel time</p>
+                <p className="text-2xl font-black text-slate-900">{activeTrip.etaMinutesToNextStop || 15} <span className="text-sm font-bold text-slate-500">min</span></p>
+              </div>
+            </div>
 
-        {activeRoute?.stops.map((stop, idx) => {
-          const positions = [
-            { left: '10%', top: '70%' },
-            { left: '30%', top: '50%' },
-            { left: '48%', top: '45%' },
-            { left: '68%', top: '35%' },
-            { left: '85%', top: '25%' }
-          ];
-          const pos = positions[idx % positions.length];
-          const isPassed = idx <= (activeTrip?.currentStopIndex || 0);
+            <div className="flex items-center space-x-2">
+              <button className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center transition-colors">
+                <Share2 className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
 
-          return (
-            <div
-              key={stop.id}
-              style={{ left: pos.left, top: pos.top }}
-              className="absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group z-10"
+          <div className="flex items-center justify-between pt-1">
+            <div className="space-y-1.5">
+              <div className="flex items-center space-x-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-100"></span>
+                <p className="text-xs font-extrabold text-slate-800">{activeRoute?.stops[0]?.name || 'Sahrdaya Main Gate'}</p>
+                <span className="text-[10px] text-slate-400 font-bold">16:00</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-sky-500 ring-4 ring-sky-100"></span>
+                <p className="text-xs font-extrabold text-slate-800">{activeTrip.nextStopName || 'Irinjalakuda Terminal'}</p>
+                <span className="text-[10px] text-slate-400 font-bold">16:25</span>
+              </div>
+            </div>
+
+            <a
+              href="tel:+919876543210"
+              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold text-xs tracking-wider shadow-xl shadow-orange-500/30 transition-all flex items-center space-x-2"
             >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
-                isPassed ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-lg shadow-cyan-500/20' : 'bg-slate-900 border-slate-700 text-slate-500'
-              }`}>
-                <MapPin className="w-4 h-4" />
-              </div>
-              <div className="mt-1 px-2.5 py-1 rounded-md glass-panel text-[10px] font-bold text-slate-200 shadow-md group-hover:scale-105 transition-transform whitespace-nowrap">
-                {stop.name}
-              </div>
-            </div>
-          );
-        })}
-
-        {tripsToDisplay.map((trip, idx) => {
-          const busPosList = [
-            { left: '22%', top: '58%' },
-            { left: '55%', top: '42%' },
-            { left: '78%', top: '30%' }
-          ];
-          const busPos = busPosList[idx % busPosList.length];
-          const isSelected = selectedBusId === trip.busId;
-          const isDelayed = trip.status === 'DELAYED';
-
-          return (
-            <div
-              key={trip.id}
-              onClick={() => onSelectBus && onSelectBus(trip.busId)}
-              style={{ left: busPos.left, top: busPos.top }}
-              className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-30 transition-all duration-700 ${
-                isSelected ? 'scale-125' : 'hover:scale-110'
-              }`}
-            >
-              <div className="relative">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl border-2 transition-colors ${
-                  isDelayed
-                    ? 'bg-amber-500 text-slate-950 border-amber-300 shadow-amber-500/50'
-                    : 'bg-gradient-to-tr from-cyan-500 to-blue-600 text-white border-cyan-300 shadow-cyan-500/50'
-                }`}>
-                  <Bus className="w-6 h-6 animate-bounce" />
-                </div>
-
-                <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 px-2 py-0.5 rounded-full bg-slate-900/90 border border-slate-700 text-[10px] font-extrabold text-cyan-400 whitespace-nowrap shadow-xl">
-                  {trip.busId.toUpperCase()}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-
-        {alerts.filter(a => a.status === 'ACTIVE').map((alert) => (
-          <div
-            key={alert.id}
-            style={{ left: '42%', top: '48%' }}
-            className="absolute transform -translate-x-1/2 -translate-y-1/2 z-40 sos-pulse flex flex-col items-center"
-          >
-            <div className="w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center shadow-2xl border-2 border-red-300 animate-spin-slow">
-              <AlertTriangle className="w-6 h-6 animate-pulse" />
-            </div>
-            <div className="mt-1 px-3 py-1 rounded-lg bg-red-950/90 border border-red-500/50 text-[11px] font-extrabold text-red-200 shadow-2xl whitespace-nowrap">
-              🚨 {alert.role} SOS ALERT
-            </div>
+              <Phone className="w-4 h-4 text-white fill-white" />
+              <span>CALL DRIVER</span>
+            </a>
           </div>
-        ))}
-      </div>
-
-      <div className="glass-panel px-6 py-2.5 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-        <div className="flex items-center space-x-6">
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-md bg-cyan-500"></span> Active Bus
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-md bg-amber-500"></span> Delayed Bus
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse"></span> Active SOS Beacon
-          </span>
         </div>
-        <div>
-          <span>{singleBusOnly ? 'Live Assigned Bus GPS Stream' : 'Click bus marker to select telemetry'}</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

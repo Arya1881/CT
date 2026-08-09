@@ -8,6 +8,7 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { DriverDashboard } from './pages/driver/DriverDashboard';
 import { StudentDashboard } from './pages/student/StudentDashboard';
 import { ParentDashboard } from './pages/parent/ParentDashboard';
+import { ManagementDashboard } from './pages/management/ManagementDashboard';
 
 const MainAppContent: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
@@ -24,6 +25,8 @@ const MainAppContent: React.FC = () => {
 
   const renderRolePage = () => {
     switch (user.role) {
+      case 'MANAGEMENT':
+        return <ManagementDashboard activeTab={activeTab} setActiveTab={setActiveTab} />;
       case 'ADMIN':
         return <AdminDashboard activeTab={activeTab} setActiveTab={setActiveTab} />;
       case 'DRIVER':
@@ -38,7 +41,7 @@ const MainAppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500 selection:text-slate-950">
+    <div className="min-h-screen flex flex-col bg-[#fff9f5] text-slate-800 font-sans selection:bg-orange-500 selection:text-white">
       <Navbar />
       <div className="flex-1 flex">
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />

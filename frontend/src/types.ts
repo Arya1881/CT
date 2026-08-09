@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'DRIVER' | 'STUDENT' | 'PARENT' | 'admin' | 'driver' | 'student' | 'parent' | 'management';
+export type UserRole = 'ADMIN' | 'DRIVER' | 'STUDENT' | 'PARENT' | 'MANAGEMENT' | 'admin' | 'driver' | 'student' | 'parent' | 'management';
 export type Role = UserRole;
 
 export type BusStatus = 'IDLE' | 'IN_TRANSIT' | 'DELAYED' | 'MAINTENANCE' | string;
