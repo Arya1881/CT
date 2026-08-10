@@ -52,6 +52,15 @@ function generateSmoothSpline(points: [number, number][], numPointsPerSegment: n
   return result;
 }
 
+// Distinct vibrant colors per route so routes are NEVER mixed or connected together
+const ROUTE_COLOR_MAP: Record<string, { main: string; glow: string }> = {
+  'route-101': { main: '#ff6b00', glow: '#ff8800' }, // Vibrant Orange
+  'route-102': { main: '#0284c7', glow: '#38bdf8' }, // Sky Blue
+  'route-103': { main: '#10b981', glow: '#34d399' }, // Emerald Green
+  'route-104': { main: '#8b5cf6', glow: '#a78bfa' }, // Purple
+  'route-105': { main: '#ec4899', glow: '#f472b6' }, // Pink
+};
+
 export const LiveMap: React.FC<LiveMapProps> = ({
   trips,
   routes,
@@ -63,8 +72,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<{ [key: string]: any }>({});
-  const polylineRef = useRef<any>(null);
-  const glowPolylineRef = useRef<any>(null);
+  const polylineLayersRef = useRef<any[]>([]);
 
   const [isMapReady, setIsMapReady] = useState(false);
 
@@ -131,60 +139,84 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     };
   }, [isMapReady]);
 
-  // Update Free-Flowing Smooth Orange Curved Spline & Markers
+  // Update Free-Flowing Smooth Distinct Route Curves & Vehicle Markers
   useEffect(() => {
     if (!mapInstanceRef.current || !(window as any).L) return;
     const L = (window as any).L;
     const map = mapInstanceRef.current;
 
-    if (activeRoute && activeRoute.stops && activeRoute.stops.length > 0) {
-      const stopCoords: [number, number][] = activeRoute.stops.map(s => [s.lat, s.lng]);
-      
-      // Generate 100% free-flowing smooth spline curves like Google Maps
+    // Clear previous route polyline layers
+    polylineLayersRef.current.forEach(layer => map.removeLayer(layer));
+    polylineLayersRef.current = [];
+
+    // Determine routes to draw: if singleBusOnly, draw ONLY that bus's assigned route; else draw individual route for selected or all routes independently
+    const routesToDraw = singleBusOnly && activeRoute
+      ? [activeRoute]
+      : (selectedBusId ? [activeRoute] : routes);
+
+    let activePolylineForFit: any = null;
+
+    routesToDraw.forEach(r => {
+      if (!r || !r.stops || r.stops.length < 2) return;
+
+      const stopCoords: [number, number][] = r.stops.map(s => [s.lat, s.lng]);
       const curvedRoutePath = generateSmoothSpline(stopCoords, 30);
+      const isSelectedRoute = r.id === activeRoute?.id;
+      const colorScheme = ROUTE_COLOR_MAP[r.id] || { main: '#ff6b00', glow: '#ff8800' };
 
-      // Outer Orange Glow Polyline Line
-      if (glowPolylineRef.current) map.removeLayer(glowPolylineRef.current);
-      glowPolylineRef.current = L.polyline(curvedRoutePath, {
-        color: '#ff8800',
-        weight: 10,
-        opacity: 0.35,
+      // Glow polyline backing
+      const glowPoly = L.polyline(curvedRoutePath, {
+        color: colorScheme.glow,
+        weight: isSelectedRoute ? 10 : 6,
+        opacity: isSelectedRoute ? 0.35 : 0.2,
         lineCap: 'round',
         lineJoin: 'round'
       }).addTo(map);
 
-      // Core Vibrant Orange Polyline Line
-      if (polylineRef.current) map.removeLayer(polylineRef.current);
-      polylineRef.current = L.polyline(curvedRoutePath, {
-        color: '#ff6b00',
-        weight: 6,
-        opacity: 0.95,
+      // Core route polyline
+      const mainPoly = L.polyline(curvedRoutePath, {
+        color: colorScheme.main,
+        weight: isSelectedRoute ? 6 : 4,
+        opacity: isSelectedRoute ? 0.95 : 0.6,
         lineCap: 'round',
         lineJoin: 'round'
       }).addTo(map);
 
-      map.fitBounds(polylineRef.current.getBounds(), { padding: [35, 35] });
+      polylineLayersRef.current.push(glowPoly, mainPoly);
+
+      if (isSelectedRoute) {
+        activePolylineForFit = mainPoly;
+      }
+    });
+
+    if (activePolylineForFit) {
+      map.fitBounds(activePolylineForFit.getBounds(), { padding: [35, 35] });
     }
 
     // Clear old markers
     Object.values(markersRef.current).forEach((marker: any) => map.removeLayer(marker));
     markersRef.current = {};
 
-    // Add Bus Vehicle Markers with Custom Orange Badge Icon
+    // Add Bus Vehicle Markers with Custom Badge Icon matching bus route color
     tripsToDisplay.forEach(trip => {
+      const tripRoute = routes.find(r => r.id === trip.routeId);
+      const colorScheme = (tripRoute && ROUTE_COLOR_MAP[tripRoute.id]) || { main: '#ff6b00', glow: '#ff8800' };
+      const isSelectedBus = selectedBusId === trip.busId;
+
       const busHtml = `
         <div style="
-          width: 46px;
-          height: 46px;
-          background: linear-gradient(135deg, #ff6b00 0%, #ff8800 100%);
+          width: ${isSelectedBus ? '48px' : '40px'};
+          height: ${isSelectedBus ? '48px' : '40px'};
+          background: linear-gradient(135deg, ${colorScheme.main} 0%, ${colorScheme.glow} 100%);
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 8px 20px rgba(255, 107, 0, 0.5);
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
           border: 3px solid #ffffff;
+          transition: all 0.2s ease;
         ">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="${isSelectedBus ? '24' : '20'}" height="${isSelectedBus ? '24' : '20'}" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M8 6v6"></path> <path d="M16 6v6"></path> <path d="M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"></path> <path d="M4 12h16"></path> <path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6H4V6z"></path> <circle cx="7.5" cy="16.5" r="1.5"></circle> <circle cx="16.5" cy="16.5" r="1.5"></circle>
           </svg>
         </div>
@@ -193,8 +225,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       const customIcon = L.divIcon({
         html: busHtml,
         className: 'custom-bus-marker',
-        iconSize: [46, 46],
-        iconAnchor: [23, 23]
+        iconSize: [isSelectedBus ? 48 : 40, isSelectedBus ? 48 : 40],
+        iconAnchor: [isSelectedBus ? 24 : 20, isSelectedBus ? 24 : 20]
       });
 
       const marker = L.marker([trip.currentLat, trip.currentLng], { icon: customIcon }).addTo(map);
@@ -204,11 +236,11 @@ export const LiveMap: React.FC<LiveMapProps> = ({
       markersRef.current[trip.busId] = marker;
     });
 
-  }, [isMapReady, tripsToDisplay, activeRoute]);
+  }, [isMapReady, tripsToDisplay, activeRoute, selectedBusId, routes]);
 
   return (
     <div className="space-y-4">
-      {/* Real Map Viewport Container (Clean 100% full-bleed map, "Track your bus" inner bar completely removed) */}
+      {/* Real Map Viewport Container */}
       <div className={`relative w-full ${height} rounded-3xl overflow-hidden shadow-2xl bg-slate-900 border border-orange-200/40`}>
         <div ref={mapContainerRef} className="w-full h-full z-10" />
       </div>
