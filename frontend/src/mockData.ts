@@ -92,23 +92,23 @@ export const USERS: User[] = [
 export const BUSES: Bus[] = [
   { id: 'bus-101', busNumber: 'SCET Bus 01', capacity: 55, regNumber: 'KL-45-Q-1001', driverId: 'd-1', routeId: 'route-101', status: 'IN_TRANSIT' },
   { id: 'bus-102', busNumber: 'SCET Bus 02', capacity: 50, regNumber: 'KL-45-Q-1002', driverId: 'd-2', routeId: 'route-102', status: 'IN_TRANSIT' },
-  { id: 'bus-103', busNumber: 'SCET Bus 03', capacity: 45, regNumber: 'KL-45-Q-1003', driverId: 'd-3', routeId: 'route-103', status: 'IDLE' },
+  { id: 'bus-103', busNumber: 'SCET Bus 03', capacity: 45, regNumber: 'KL-45-Q-1003', driverId: 'd-3', routeId: 'route-103', status: 'IN_TRANSIT' },
   { id: 'bus-104', busNumber: 'SCET Bus 04', capacity: 60, regNumber: 'KL-45-Q-1004', driverId: 'd-4', routeId: 'route-104', status: 'IN_TRANSIT' },
-  { id: 'bus-105', busNumber: 'SCET Bus 05', capacity: 50, regNumber: 'KL-45-Q-1005', driverId: 'd-5', routeId: 'route-105', status: 'MAINTENANCE' }
+  { id: 'bus-105', busNumber: 'SCET Bus 05', capacity: 50, regNumber: 'KL-45-Q-1005', driverId: 'd-5', routeId: 'route-105', status: 'IN_TRANSIT' }
 ];
 
 export const DRIVERS: Driver[] = [
   { id: 'd-1', userId: 'u-driver-1', name: 'Unnikrishnan Nair', phone: '+91 98471 11101', licenseNumber: 'KL-08-2021-99881', busId: 'bus-101', status: 'ON_TRIP' },
   { id: 'd-2', userId: 'u-driver-2', name: 'Sebastian Varghese', phone: '+91 98471 11102', licenseNumber: 'KL-45-2020-88772', busId: 'bus-102', status: 'ON_TRIP' },
-  { id: 'd-3', userId: 'u-driver-3', name: 'Abdul Rasheed', phone: '+91 98471 11103', licenseNumber: 'KL-64-2019-77663', busId: 'bus-103', status: 'AVAILABLE' },
+  { id: 'd-3', userId: 'u-driver-3', name: 'Abdul Rasheed', phone: '+91 98471 11103', licenseNumber: 'KL-64-2019-77663', busId: 'bus-103', status: 'ON_TRIP' },
   { id: 'd-4', userId: 'u-driver-4', name: 'Joy Thomas', phone: '+91 98471 11104', licenseNumber: 'KL-13-2022-66554', busId: 'bus-104', status: 'ON_TRIP' },
-  { id: 'd-5', userId: 'u-driver-5', name: 'Vinod Kumar', phone: '+91 98471 11105', licenseNumber: 'KL-07-2018-55445', busId: 'bus-105', status: 'OFF_DUTY' }
+  { id: 'd-5', userId: 'u-driver-5', name: 'Vinod Kumar', phone: '+91 98471 11105', licenseNumber: 'KL-07-2018-55445', busId: 'bus-105', status: 'ON_TRIP' }
 ];
 
 export const STUDENTS: Student[] = [
   { id: 's-1', userId: 'u-student-1', name: 'Adithya Menon', rollNumber: 'SH-CSE-2022-014', gradeDepartment: 'Computer Science & Engg (Yr 3)', assignedBusId: 'bus-101', assignedStopId: 'stop-101-3', parentUserId: 'u-parent-1', boardingStatus: 'ON_BOARD' },
   { id: 's-2', userId: 'u-student-2', name: 'Devika Menon', rollNumber: 'SH-ECE-2024-008', gradeDepartment: 'Electronics & Comm Engg (Yr 1)', assignedBusId: 'bus-101', assignedStopId: 'stop-101-3', parentUserId: 'u-parent-1', boardingStatus: 'ON_BOARD' },
-  { id: 's-3', userId: 'u-student-3', name: 'Alwin George', rollNumber: 'SH-BME-2023-045', gradeDepartment: 'Biomedical Engg (Yr 2)', assignedBusId: 'bus-102', assignedStopId: 'stop-102-3', parentUserId: 'u-parent-2', boardingStatus: 'ON_BOARD' }
+  { id: 's-3', userId: 'u-student-3', name: 'Alwin George', rollNumber: 'SH-BME-2023-045', gradeDepartment: 'Biomedical Engg (Yr 2)', assignedBusId: 'bus-104', assignedStopId: 'stop-104-2', parentUserId: 'u-parent-2', boardingStatus: 'ON_BOARD' }
 ];
 
 export const PARENTS: Parent[] = [
@@ -116,6 +116,7 @@ export const PARENTS: Parent[] = [
   { userId: 'u-parent-2', name: 'Georgekutty Joseph', phone: '+91 98461 22202', email: 'george.parent@gmail.com', childrenIds: ['s-3'] }
 ];
 
+// Active Live Trips for ALL Fleet Buses (including SCET Bus 04 / KL-45-Q-1004 running on Angamaly Route D!)
 export const INITIAL_TRIPS: Trip[] = [
   {
     id: 'trip-101',
@@ -144,6 +145,48 @@ export const INITIAL_TRIPS: Trip[] = [
     currentStopIndex: 1,
     nextStopName: 'Chalakudy KSRTC Bus Station',
     etaMinutesToNextStop: 9
+  },
+  {
+    id: 'trip-103',
+    busId: 'bus-103',
+    driverId: 'd-3',
+    routeId: 'route-103',
+    status: 'IN_TRANSIT',
+    startTime: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
+    currentLat: 10.4780,
+    currentLng: 76.2420,
+    speedKmh: 45.0,
+    currentStopIndex: 2,
+    nextStopName: 'Thrissur Swaraj Round',
+    etaMinutesToNextStop: 12
+  },
+  {
+    id: 'trip-104',
+    busId: 'bus-104',
+    driverId: 'd-4',
+    routeId: 'route-104',
+    status: 'IN_TRANSIT',
+    startTime: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+    currentLat: 10.2650,
+    currentLng: 76.3540,
+    speedKmh: 48.0,
+    currentStopIndex: 1,
+    nextStopName: 'Angamaly KSRTC Station',
+    etaMinutesToNextStop: 10
+  },
+  {
+    id: 'trip-105',
+    busId: 'bus-105',
+    driverId: 'd-5',
+    routeId: 'route-105',
+    status: 'IN_TRANSIT',
+    startTime: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
+    currentLat: 10.2880,
+    currentLng: 76.2620,
+    speedKmh: 40.0,
+    currentStopIndex: 1,
+    nextStopName: 'Mala Bus Terminal',
+    etaMinutesToNextStop: 11
   }
 ];
 
